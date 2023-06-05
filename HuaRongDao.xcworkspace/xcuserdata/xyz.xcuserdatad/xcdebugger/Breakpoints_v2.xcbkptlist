@@ -14,8 +14,8 @@
             filePath = "HuaRongDao/ViewController.m"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "278"
-            endingLineNumber = "278"
+            startingLineNumber = "304"
+            endingLineNumber = "304"
             landmarkName = "-onPanned:"
             landmarkType = "7">
          </BreakpointContent>

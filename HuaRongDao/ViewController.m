@@ -79,6 +79,8 @@ typedef enum {
 @interface HRDGame : NSObject
 
 @property (nonatomic, strong) NSMutableArray* tiles;
+@property (nonatomic, readonly) int width;
+@property (nonatomic, readonly) int height;
 
 @end
 
@@ -87,6 +89,8 @@ typedef enum {
 - (instancetype)init {
     if (self = [super init]) {
         self.tiles = [[NSMutableArray alloc] init];
+        _width = 4;
+        _height = 5;
     }
     return self;
 }
@@ -117,7 +121,7 @@ typedef enum {
 
 - (TileRange)tileMovableRange:(HRDTile*)tile {
     TileRange res = {
-        0, 4 - tile.width, 0, 4 - tile.height
+        0, _width - tile.width, 0, _height - tile.height
     };
     for (HRDTile* t in _tiles) {
         //
@@ -143,6 +147,13 @@ typedef enum {
 @end
 
 
+typedef struct InitialTile {
+    int x, y;
+    int w, h;
+    NSString* name;
+    UIColor* textColor;
+    UIColor* bgColor;
+} InitialTile;
 
 
 
@@ -175,47 +186,59 @@ NSMutableArray* board;
         @[@0, @0, @0, @0]
     ] mutableCopy];
     
+    InitialTile zhangfei = {0, 0, 1, 2, @"张飞", [UIColor whiteColor], [UIColor grayColor]};
+    InitialTile machao = {0, 3, 1, 2, @"马超", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.717 green:0.0 blue:0.0 alpha:1.0]};
+    InitialTile zhaoyun = {2, 0, 1, 2, @"赵云", [UIColor blackColor], [[UIColor alloc] initWithRed:1.0 green:0.717 blue:0.0 alpha:1.0]};
+    InitialTile huangzhong = {2, 3, 1, 2, @"黄忠", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.396 green:0.159 blue:0.592 alpha:1.0]};
+    InitialTile guanyu = {2, 1, 2, 1, @"关羽", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:0.654 blue:0.278 alpha:1.0]};
+    InitialTile zu1 = {4, 0, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
+    InitialTile zu2 = {3, 1, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
+    InitialTile zu3 = {3, 2, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
+    InitialTile zu4 = {4, 3, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
+    InitialTile caocao = {0, 1, 2, 2, @"曹操", [UIColor blackColor], [[UIColor alloc] initWithRed:116.0 / 255 green:1.0 blue:1.0 alpha:1.0]};
+    InitialTile initials[] = {zhangfei, machao, zhaoyun, huangzhong, guanyu, zu1, zu2, zu3, zu4, caocao};
+    
     self.game = [[HRDGame alloc] init];
     
     self.containerView = [[UIView alloc] initWithFrame:CGRectZero];
-    self.containerView.backgroundColor = [UIColor grayColor];
+    self.containerView.backgroundColor = [UIColor brownColor];
     self.containerView.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.containerView];
     [self.containerView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.view).with.offset(16);
         make.right.equalTo(self.view).with.offset(-16);
 //        [self.view layoutIfNeeded];
-        make.height.mas_equalTo(self.containerView.mas_width);
+        make.height.mas_equalTo(self.containerView.mas_width).multipliedBy(1.25);
         make.centerY.mas_equalTo(0);
         [self.view layoutIfNeeded];
     }];
     [self.containerView layoutIfNeeded];
     self.unit = self.containerView.bounds.size.width / 4;
     
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            if (0 == [board[i][j] intValue]) {
-                continue;
-            }
-            UIView* tileij = [[UIView alloc] initWithFrame:CGRectZero];
-            tileij.backgroundColor = [UIColor blueColor];
-            tileij.translatesAutoresizingMaskIntoConstraints = NO;
-            UILabel* tileLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.unit, self.unit * 2)];
-            tileLabel.text = [NSString stringWithFormat:@"%d", [board[i][j] intValue]];
-            tileLabel.textColor = [UIColor whiteColor];
-            tileLabel.textAlignment = NSTextAlignmentCenter;
-            [tileij addSubview:tileLabel];
-            [self.containerView addSubview:tileij];
-            [tileij mas_makeConstraints:^(MASConstraintMaker *make) {
-                make.left.equalTo(self.containerView).with.offset(j * self.unit);
-                make.top.equalTo(self.containerView).with.offset(i * self.unit);
-                make.height.mas_equalTo(2 * self.unit);
-                make.width.mas_equalTo(self.containerView.mas_width).multipliedBy(0.25);
-            }];
-            
-            [self.game addTileAtRow:i andCol:j andWidth:1 andHeight:2 andView:tileij];
-            
-        }
+    for (int i = 0; i < 10; ++i) {
+        UIView* tileij = [[UIView alloc] initWithFrame:CGRectZero];
+        tileij.backgroundColor = initials[i].bgColor;
+        tileij.translatesAutoresizingMaskIntoConstraints = NO;
+        UILabel* tileLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.unit * initials[i].w, self.unit * initials[i].h)];
+        tileLabel.text = [NSString stringWithFormat:@"%@", initials[i].name];
+        tileLabel.font = [UIFont systemFontOfSize:36];
+        tileLabel.layer.borderWidth = 2.0;
+        tileLabel.layer.borderColor = [UIColor blackColor].CGColor;
+        tileLabel.layer.cornerRadius = 2.0;
+        tileLabel.textColor = initials[i].textColor;
+        tileLabel.textAlignment = NSTextAlignmentCenter;
+        [tileij addSubview:tileLabel];
+        [self.containerView addSubview:tileij];
+        int x = initials[i].x, y = initials[i].y;
+        int w = initials[i].w, h = initials[i].h;
+        [tileij mas_makeConstraints:^(MASConstraintMaker *make) {
+            make.left.equalTo(self.containerView).with.offset(y * self.unit);
+            make.top.equalTo(self.containerView).with.offset(x * self.unit);
+            make.height.mas_equalTo(h * self.unit);
+            make.width.mas_equalTo(w * self.unit);
+        }];
+        
+        [self.game addTileAtRow:x andCol:y andWidth:initials[i].w andHeight:initials[i].h andView:tileij];
     }
 
     UIPanGestureRecognizer* pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(onPanned:)];
@@ -258,6 +281,9 @@ NSMutableArray* board;
             }];
             [self.dragState.tile.view.superview layoutIfNeeded];
         }];
+        if (self.dragState.tile.width == 2 && self.dragState.tile.height == 2 && endI == 3 && endJ == 1) {
+            NSLog(@"游戏结束，恭喜您！");
+        }
         
         [self.dragState clear];
     } else if (UIGestureRecognizerStateChanged == recognizer.state) {
