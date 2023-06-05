@@ -160,6 +160,7 @@ typedef struct InitialTile {
 @interface ViewController ()
 
 @property (nonatomic, strong) UIView* containerView;
+@property (nonatomic, strong) UILabel *movesLabel, *stepsLabel;
 @property (nonatomic, strong) HRDGame* game;
 @property (nonatomic, strong) DragState* dragState;
 @property (nonatomic) CGFloat unit;
@@ -170,15 +171,25 @@ typedef struct InitialTile {
 
 //UIView* containerView;
 NSMutableArray* board;
+int steps = 0;
+int moves = 0;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view.
+    self.game = [[HRDGame alloc] init];
+    [self initViews];
     
     self.dragState = [[DragState alloc] init];
-    board = [[NSMutableArray alloc] initWithCapacity:4];
-//    [board addObject:[[NSMutableArray alloc] initWithCapacity:4]];
     
+    
+    
+    
+    
+}
+
+- (void)initViews {
+    board = [[NSMutableArray alloc] initWithCapacity:4];
     board = [@[
         @[@0, @0, @0, @1],
         @[@0, @0, @2, @0],
@@ -198,23 +209,37 @@ NSMutableArray* board;
     InitialTile caocao = {0, 1, 2, 2, @"曹操", [UIColor blackColor], [[UIColor alloc] initWithRed:116.0 / 255 green:1.0 blue:1.0 alpha:1.0]};
     InitialTile initials[] = {zhangfei, machao, zhaoyun, huangzhong, guanyu, zu1, zu2, zu3, zu4, caocao};
     
-    self.game = [[HRDGame alloc] init];
+    
+    UIStackView* screen = [[UIStackView alloc] init];
+    screen.axis = UILayoutConstraintAxisVertical;
+    screen.distribution = UIStackViewDistributionEqualCentering;
+    screen.alignment = UIStackViewAlignmentTop;
+    screen.spacing = 8;
+    [self.view addSubview:screen];
+    [screen mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.view).offset(16);
+        make.right.equalTo(self.view).offset(-16);
+//        make.top.equalTo(self.view.mas_safeAreaLayoutGuideTop);
+        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom);
+    }];
     
     self.containerView = [[UIView alloc] initWithFrame:CGRectZero];
     self.containerView.backgroundColor = [UIColor brownColor];
+    self.containerView.layer.borderColor = [UIColor brownColor].CGColor;
+    self.containerView.layer.borderWidth = 5;
+    self.containerView.layer.cornerRadius = 5;
     self.containerView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:self.containerView];
+//    [self.view addSubview:self.containerView];
+    [screen addArrangedSubview:self.containerView];
     [self.containerView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.view).with.offset(16);
-        make.right.equalTo(self.view).with.offset(-16);
-//        [self.view layoutIfNeeded];
+        make.left.equalTo(screen);
+        make.right.equalTo(screen);
+        [screen layoutIfNeeded];
         make.height.mas_equalTo(self.containerView.mas_width).multipliedBy(1.25);
-        make.centerY.mas_equalTo(0);
-        [self.view layoutIfNeeded];
     }];
     [self.containerView layoutIfNeeded];
-    self.unit = self.containerView.bounds.size.width / 4;
-    
+    self.unit = self.containerView.frame.size.width / 4;
+
     for (int i = 0; i < 10; ++i) {
         UIView* tileij = [[UIView alloc] initWithFrame:CGRectZero];
         tileij.backgroundColor = initials[i].bgColor;
@@ -222,7 +247,7 @@ NSMutableArray* board;
         UILabel* tileLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.unit * initials[i].w, self.unit * initials[i].h)];
         tileLabel.text = [NSString stringWithFormat:@"%@", initials[i].name];
         tileLabel.font = [UIFont systemFontOfSize:36];
-        tileLabel.layer.borderWidth = 2.0;
+        tileLabel.layer.borderWidth = 1.5;
         tileLabel.layer.borderColor = [UIColor blackColor].CGColor;
         tileLabel.layer.cornerRadius = 2.0;
         tileLabel.textColor = initials[i].textColor;
@@ -237,23 +262,39 @@ NSMutableArray* board;
             make.height.mas_equalTo(h * self.unit);
             make.width.mas_equalTo(w * self.unit);
         }];
-        
+
         [self.game addTileAtRow:x andCol:y andWidth:initials[i].w andHeight:initials[i].h andView:tileij];
     }
-
     UIPanGestureRecognizer* pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(onPanned:)];
     [self.containerView addGestureRecognizer:pan];
+
+    UIStackView* scoreBoard = [[UIStackView alloc] init];
+    scoreBoard.axis = UILayoutConstraintAxisHorizontal;
+    scoreBoard.distribution = UIStackViewDistributionFillEqually;
+    scoreBoard.alignment = UIStackViewAlignmentCenter;
+    scoreBoard.spacing = 10.0;
+    self.movesLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
+    self.movesLabel.text = [NSString stringWithFormat:@"移动次数：%d", moves];
+    [scoreBoard addArrangedSubview:self.movesLabel];
+    self.stepsLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
+    self.stepsLabel.text = [NSString stringWithFormat:@"移动距离：%d", steps];
+    [scoreBoard addArrangedSubview:self.stepsLabel];
+    [screen addArrangedSubview:scoreBoard];
+    [scoreBoard mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(screen);
+        make.right.equalTo(screen);
+    }];
+    
+    
 }
 
 - (void)onPanned:(UIPanGestureRecognizer *)recognizer {
     if (UIGestureRecognizerStateBegan == recognizer.state) {
         // 拖拽开始
         // 记录拖拽的方块、起始坐标，计算并记录方块可左右移动的范围
-        
         CGPoint startPoint = [recognizer locationInView:recognizer.view];
         int i = (int)(startPoint.y / self.unit);
         int j = (int)(startPoint.x / self.unit);
-        
         HRDTile* draggedTile = [self.game tileAtRow:i andCol:j];
         if (nil == draggedTile) {
             return;
@@ -269,6 +310,14 @@ NSMutableArray* board;
         CGFloat endTop = [self topConstraintToParent:self.dragState.tile.view];
         int endI = CLIP((int)(endTop / self.unit + 0.5), self.dragState.range.minTop, self.dragState.range.maxTop);
         int endJ = CLIP((int)(endLeft / self.unit + 0.5), self.dragState.range.minLeft, self.dragState.range.maxLeft);
+        int diffI = ABS(self.dragState.tile.topIndex - endI);
+        int diffJ = ABS(self.dragState.tile.leftIndex - endJ);
+        if (diffI > 0 || diffJ > 0) {
+            moves += 1;
+            steps += diffI + diffJ;
+            self.movesLabel.text = [NSString stringWithFormat:@"移动次数：%d", moves];
+            self.stepsLabel.text = [NSString stringWithFormat:@"移动距离：%d", steps];
+        }
         CGFloat newTop = endI * self.unit;
         CGFloat newLeft = endJ * self.unit;
         self.dragState.tile.topIndex = endI;
