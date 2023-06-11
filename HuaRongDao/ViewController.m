@@ -7,154 +7,10 @@
 
 #import "ViewController.h"
 #import "Masonry.h"
-
+#import "ConfigLoader.h"
+#import "HRDGame.h"
 
 #define CLIP(a, min, max) MAX(min, MIN(a, max))
-
-
-typedef struct TileRange {
-    int minLeft;
-    int maxLeft;
-    int minTop;
-    int maxTop;
-} TileRange;
-
-typedef enum {
-    DragHorizontal, DragVerticel, NotSet
-} DragDirection;
-
-
-@interface HRDTile : NSObject
-
-@property (nonatomic, strong) UIView* view;
-@property (nonatomic) int width;
-@property (nonatomic) int height;
-@property (nonatomic) int leftIndex;
-@property (nonatomic) int topIndex;
-
-@end
-
-@implementation HRDTile
-
-- (BOOL)totallyTopTo:(HRDTile*)another {
-    return self.topIndex + self.height <= another.topIndex;
-}
-
-- (BOOL)totallyLeftTo:(HRDTile*)another {
-    return self.leftIndex + self.width <= another.leftIndex;
-}
- 
-@end
-
-@interface DragState : NSObject
-
-@property (nonatomic, weak) HRDTile* tile;
-@property (nonatomic) int i;
-@property (nonatomic) int j;
-@property (nonatomic) DragDirection dir;
-@property (nonatomic) TileRange range;
-
-@end
-
-@implementation DragState
-
-- (instancetype)init {
-    if (self = [super init]) {
-        [self clear];
-    }
-    return self;
-}
-
-- (void)clear {
-    self.tile = nil;
-    self.i = self.j = -1;
-    self.dir = NotSet;
-}
-
-@end
-
-
-
-
-@interface HRDGame : NSObject
-
-@property (nonatomic, strong) NSMutableArray* tiles;
-@property (nonatomic, readonly) int width;
-@property (nonatomic, readonly) int height;
-
-@end
-
-@implementation HRDGame
-
-- (instancetype)init {
-    if (self = [super init]) {
-        self.tiles = [[NSMutableArray alloc] init];
-        _width = 4;
-        _height = 5;
-    }
-    return self;
-}
-
-- (void)addTileAtRow:(int)row andCol:(int)col andWidth:(int)width andHeight:(int)height andView:(UIView*)view {
-    HRDTile* tile = [self tileAtRow:row andCol:col];
-    if (nil != tile) {
-        return;
-    }
-    tile = [[HRDTile alloc] init];
-    tile.view = view;
-    tile.width = width;
-    tile.height = height;
-    tile.leftIndex = col;
-    tile.topIndex = row;
-    [self.tiles addObject:tile];
-}
-
-- (HRDTile*)tileAtRow:(int)row andCol:(int)col {
-    for (HRDTile* tile in self.tiles) {
-        if (tile.leftIndex <= col && col < tile.leftIndex + tile.width
-            && tile.topIndex <= row && row < tile.topIndex + tile.height) {
-            return tile;
-        }
-    }
-    return nil;
-}
-
-- (TileRange)tileMovableRange:(HRDTile*)tile {
-    TileRange res = {
-        0, _width - tile.width, 0, _height - tile.height
-    };
-    for (HRDTile* t in _tiles) {
-        //
-        if (t == tile) continue;
-        if ([t totallyLeftTo:tile] && ![t totallyTopTo:tile] && ![tile totallyTopTo:t]) {
-            // t 在 tile 的左边
-            res.minLeft = MAX(res.minLeft, t.leftIndex + t.width);
-        }
-        if ([tile totallyLeftTo:t] && ![t totallyTopTo:tile] && ![tile totallyTopTo:t]) {
-            // t 在 tile 的左边
-            res.maxLeft = MIN(res.maxLeft, t.leftIndex - tile.width);
-        }
-        if ([t totallyTopTo:tile] && ![t totallyLeftTo:tile] && ![tile totallyLeftTo:t]) {
-            res.minTop = MAX(res.minTop, t.topIndex + t.height);
-        }
-        if ([tile totallyTopTo:t] && ![t totallyLeftTo:tile] && ![tile totallyLeftTo:t]) {
-            res.maxTop = MIN(res.maxTop, t.topIndex - tile.height);
-        }
-    }
-    return res;
-}
-
-@end
-
-
-typedef struct InitialTile {
-    int x, y;
-    int w, h;
-    NSString* name;
-    UIColor* textColor;
-    UIColor* bgColor;
-} InitialTile;
-
 
 
 @interface ViewController ()
@@ -162,54 +18,21 @@ typedef struct InitialTile {
 @property (nonatomic, strong) UIView* containerView;
 @property (nonatomic, strong) UILabel *movesLabel, *stepsLabel;
 @property (nonatomic, strong) HRDGame* game;
-@property (nonatomic, strong) DragState* dragState;
 @property (nonatomic) CGFloat unit;
+@property (nonatomic) int numMoves, numSteps;
 
 @end
 
 @implementation ViewController
-
-//UIView* containerView;
-NSMutableArray* board;
-int steps = 0;
-int moves = 0;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view.
     self.game = [[HRDGame alloc] init];
     [self initViews];
-    
-    self.dragState = [[DragState alloc] init];
-    
-    
-    
-    
-    
 }
 
 - (void)initViews {
-    board = [[NSMutableArray alloc] initWithCapacity:4];
-    board = [@[
-        @[@0, @0, @0, @1],
-        @[@0, @0, @2, @0],
-        @[@0, @0, @0, @0],
-        @[@0, @0, @0, @0]
-    ] mutableCopy];
-    
-    InitialTile zhangfei = {0, 0, 1, 2, @"张飞", [UIColor whiteColor], [UIColor grayColor]};
-    InitialTile machao = {0, 3, 1, 2, @"马超", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.717 green:0.0 blue:0.0 alpha:1.0]};
-    InitialTile zhaoyun = {2, 0, 1, 2, @"赵云", [UIColor blackColor], [[UIColor alloc] initWithRed:1.0 green:0.717 blue:0.0 alpha:1.0]};
-    InitialTile huangzhong = {2, 3, 1, 2, @"黄忠", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.396 green:0.159 blue:0.592 alpha:1.0]};
-    InitialTile guanyu = {2, 1, 2, 1, @"关羽", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:0.654 blue:0.278 alpha:1.0]};
-    InitialTile zu1 = {4, 0, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
-    InitialTile zu2 = {3, 1, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
-    InitialTile zu3 = {3, 2, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
-    InitialTile zu4 = {4, 3, 1, 1, @"卒", [UIColor whiteColor], [[UIColor alloc] initWithRed:0.0 green:166.0 / 255 blue:237.0 / 255 alpha:1.0]};
-    InitialTile caocao = {0, 1, 2, 2, @"曹操", [UIColor blackColor], [[UIColor alloc] initWithRed:116.0 / 255 green:1.0 blue:1.0 alpha:1.0]};
-    InitialTile initials[] = {zhangfei, machao, zhaoyun, huangzhong, guanyu, zu1, zu2, zu3, zu4, caocao};
-    
-    
     UIStackView* screen = [[UIStackView alloc] init];
     screen.axis = UILayoutConstraintAxisVertical;
     screen.distribution = UIStackViewDistributionEqualCentering;
@@ -220,13 +43,37 @@ int moves = 0;
         make.left.equalTo(self.view).offset(16);
         make.right.equalTo(self.view).offset(-16);
 //        make.top.equalTo(self.view.mas_safeAreaLayoutGuideTop);
-        make.bottom.equalTo(self.view.mas_safeAreaLayoutGuideBottom);
+        make.top.equalTo(self.view.mas_safeAreaLayoutGuideTop);
     }];
     
+    UIView* titleBar = [[UIView alloc] initWithFrame:CGRectZero];
+    [screen addArrangedSubview:titleBar];
+    
+    UIImageView* title = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"huarongdao"]];
+    UIImageView* help = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"help"]];
+    [titleBar addSubview:title];
+    [titleBar addSubview:help];
+    [titleBar mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.and.right.equalTo(screen);
+        make.height.mas_equalTo(title.mas_height);
+    }];
+    
+    [title mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.center.mas_equalTo(titleBar);
+    }];
+    [help mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.mas_equalTo(title.mas_right);
+        make.bottom.equalTo(titleBar);
+    }];
+    help.userInteractionEnabled = YES;
+    UITapGestureRecognizer* tapRecog = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(helpClicked:)];
+    [help addGestureRecognizer:tapRecog];
+    
+    // 绘制棋盘
     self.containerView = [[UIView alloc] initWithFrame:CGRectZero];
     self.containerView.backgroundColor = [UIColor brownColor];
     self.containerView.layer.borderColor = [UIColor brownColor].CGColor;
-    self.containerView.layer.borderWidth = 5;
+//    self.containerView.layer.borderWidth = 5;
     self.containerView.layer.cornerRadius = 5;
     self.containerView.translatesAutoresizingMaskIntoConstraints = NO;
 //    [self.view addSubview:self.containerView];
@@ -240,52 +87,74 @@ int moves = 0;
     [self.containerView layoutIfNeeded];
     self.unit = self.containerView.frame.size.width / 4;
 
-    for (int i = 0; i < 10; ++i) {
+    // 加载棋盘中各个方块
+    NSDictionary* config = [ConfigLoader loadConfig:@"TileLocations"];
+    NSArray* scenarios = config[@"scenarios"];
+    NSDictionary* bgColors = config[@"bgColor"];
+    NSDictionary* textColors = config[@"textColor"];
+    for (NSDictionary* tile in scenarios[0][@"pos"]) {
+        NSString* tilename = tile[@"name"];
+        int x = [(NSNumber*)tile[@"x"] intValue];
+        int y = [(NSNumber*)tile[@"y"] intValue];
+        int width = [(NSNumber*)tile[@"width"] intValue];
+        int height = [(NSNumber*)tile[@"height"] intValue];
+        NSDictionary* bgColor = bgColors[tilename];
+        NSDictionary* textColor = textColors[tilename];
+        
         UIView* tileij = [[UIView alloc] initWithFrame:CGRectZero];
-        tileij.backgroundColor = initials[i].bgColor;
+        tileij.backgroundColor = [UIColor colorWithRed:[(NSNumber*)bgColor[@"red"] doubleValue] green:[(NSNumber*)bgColor[@"green"] doubleValue] blue:[(NSNumber*)bgColor[@"blue"] doubleValue] alpha:1.0];
+        tileij.layer.borderWidth = 1.5;
+        tileij.layer.borderColor = [UIColor blackColor].CGColor;
+        tileij.layer.cornerRadius = 5;
         tileij.translatesAutoresizingMaskIntoConstraints = NO;
-        UILabel* tileLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.unit * initials[i].w, self.unit * initials[i].h)];
-        tileLabel.text = [NSString stringWithFormat:@"%@", initials[i].name];
+        UILabel* tileLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.unit * width, self.unit * height)];
+        tileLabel.text = [NSString stringWithFormat:@"%@", tilename];
         tileLabel.font = [UIFont systemFontOfSize:36];
-        tileLabel.layer.borderWidth = 1.5;
-        tileLabel.layer.borderColor = [UIColor blackColor].CGColor;
-        tileLabel.layer.cornerRadius = 2.0;
-        tileLabel.textColor = initials[i].textColor;
+        tileLabel.textColor = [UIColor colorWithRed:[(NSNumber*)textColor[@"red"] doubleValue] green:[(NSNumber*)textColor[@"green"] doubleValue] blue:[(NSNumber*)textColor[@"blue"] doubleValue] alpha:1.0];
         tileLabel.textAlignment = NSTextAlignmentCenter;
         [tileij addSubview:tileLabel];
         [self.containerView addSubview:tileij];
-        int x = initials[i].x, y = initials[i].y;
-        int w = initials[i].w, h = initials[i].h;
         [tileij mas_makeConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.containerView).with.offset(y * self.unit);
             make.top.equalTo(self.containerView).with.offset(x * self.unit);
-            make.height.mas_equalTo(h * self.unit);
-            make.width.mas_equalTo(w * self.unit);
+            make.height.mas_equalTo(height * self.unit);
+            make.width.mas_equalTo(width * self.unit);
         }];
 
-        [self.game addTileAtRow:x andCol:y andWidth:initials[i].w andHeight:initials[i].h andView:tileij];
+        [self.game addTileAtRow:x andCol:y andWidth:width andHeight:height andView:tileij];
     }
     UIPanGestureRecognizer* pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(onPanned:)];
     [self.containerView addGestureRecognizer:pan];
 
     UIStackView* scoreBoard = [[UIStackView alloc] init];
     scoreBoard.axis = UILayoutConstraintAxisHorizontal;
-    scoreBoard.distribution = UIStackViewDistributionFillEqually;
+    scoreBoard.distribution = UIStackViewDistributionFill;
     scoreBoard.alignment = UIStackViewAlignmentCenter;
     scoreBoard.spacing = 10.0;
+    UILabel* levelNameLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
+    levelNameLabel.text = [NSString stringWithFormat:@"%@", scenarios[0][@"name"]];
+    [scoreBoard addArrangedSubview:levelNameLabel];
+    
     self.movesLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
-    self.movesLabel.text = [NSString stringWithFormat:@"移动次数：%d", moves];
     [scoreBoard addArrangedSubview:self.movesLabel];
     self.stepsLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
-    self.stepsLabel.text = [NSString stringWithFormat:@"移动距离：%d", steps];
     [scoreBoard addArrangedSubview:self.stepsLabel];
+    
     [screen addArrangedSubview:scoreBoard];
     [scoreBoard mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(screen);
         make.right.equalTo(screen);
     }];
     
-    
+    // add observers to auto-update view
+    [self addObservers];
+    self.numSteps = self.numMoves = 0;
+}
+
+-(void)helpClicked:(UITapGestureRecognizer*)gesture {
+    UIViewController *controller =  [self.storyboard instantiateViewControllerWithIdentifier:@"help_vc"];
+    controller.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:controller animated:true completion:nil];
 }
 
 - (void)onPanned:(UIPanGestureRecognizer *)recognizer {
@@ -295,68 +164,61 @@ int moves = 0;
         CGPoint startPoint = [recognizer locationInView:recognizer.view];
         int i = (int)(startPoint.y / self.unit);
         int j = (int)(startPoint.x / self.unit);
-        HRDTile* draggedTile = [self.game tileAtRow:i andCol:j];
-        if (nil == draggedTile) {
-            return;
-        }
-        self.dragState.tile = draggedTile;
-        self.dragState.i = i;
-        self.dragState.j = j;
-        self.dragState.range = [self.game tileMovableRange:draggedTile];
+        [self.game setDraggedTileAtRow:i andCol:j];
+        
     } else if (UIGestureRecognizerStateEnded == recognizer.state || UIGestureRecognizerStateCancelled == recognizer.state) {
         // 拖拽完毕
         // 将刚才拖拽的控件放到格子中
-        CGFloat endLeft = [self leftConstraintToParent:self.dragState.tile.view];
-        CGFloat endTop = [self topConstraintToParent:self.dragState.tile.view];
-        int endI = CLIP((int)(endTop / self.unit + 0.5), self.dragState.range.minTop, self.dragState.range.maxTop);
-        int endJ = CLIP((int)(endLeft / self.unit + 0.5), self.dragState.range.minLeft, self.dragState.range.maxLeft);
-        int diffI = ABS(self.dragState.tile.topIndex - endI);
-        int diffJ = ABS(self.dragState.tile.leftIndex - endJ);
+        CGFloat endLeft = [self leftConstraintToParent:self.game.drag.tile.view];
+        CGFloat endTop = [self topConstraintToParent:self.game.drag.tile.view];
+        int endI = CLIP((int)(endTop / self.unit + 0.5), self.game.drag.range.minTop, self.game.drag.range.maxTop);
+        int endJ = CLIP((int)(endLeft / self.unit + 0.5), self.game.drag.range.minLeft, self.game.drag.range.maxLeft);
+        int diffI = ABS(self.game.drag.tile.topIndex - endI);
+        int diffJ = ABS(self.game.drag.tile.leftIndex - endJ);
         if (diffI > 0 || diffJ > 0) {
-            moves += 1;
-            steps += diffI + diffJ;
-            self.movesLabel.text = [NSString stringWithFormat:@"移动次数：%d", moves];
-            self.stepsLabel.text = [NSString stringWithFormat:@"移动距离：%d", steps];
+            self.numMoves += 1;
+            self.numSteps += diffI + diffJ;
         }
         CGFloat newTop = endI * self.unit;
         CGFloat newLeft = endJ * self.unit;
-        self.dragState.tile.topIndex = endI;
-        self.dragState.tile.leftIndex = endJ;
+        self.game.drag.tile.topIndex = endI;
+        self.game.drag.tile.leftIndex = endJ;
         
         [UIView animateWithDuration:0.005 * (ABS(endLeft - newLeft) + ABS(endTop - newTop)) animations:^{
-            [self.dragState.tile.view mas_updateConstraints:^(MASConstraintMaker *make) {
+            [self.game.drag.tile.view mas_updateConstraints:^(MASConstraintMaker *make) {
                 make.left.equalTo(self.containerView).with.offset(newLeft);
                 make.top.equalTo(self.containerView).with.offset(newTop);
             }];
-            [self.dragState.tile.view.superview layoutIfNeeded];
+            [self.game.drag.tile.view.superview layoutIfNeeded];
         }];
-        if (self.dragState.tile.width == 2 && self.dragState.tile.height == 2 && endI == 3 && endJ == 1) {
+        if ([self.game win]) {
             NSLog(@"游戏结束，恭喜您！");
+            [self gameFinish];
         }
         
-        [self.dragState clear];
+        [self.game clearDragState];
     } else if (UIGestureRecognizerStateChanged == recognizer.state) {
         // 拖拽并移动，更新控件位置
         CGPoint translation = [recognizer translationInView:recognizer.view];
-        if (self.dragState.dir == NotSet) {
+        if (NotSet == self.game.drag.dir) {
             BOOL isHorizontalDrag = ABS(translation.x) > ABS(translation.y);
             if (isHorizontalDrag) {
                 // 判断横向的移动空间进行移动
-                self.dragState.dir = DragHorizontal;
+                self.game.drag.dir = DragHorizontal;
             } else {
                 // 判断纵向的移动空间
-                self.dragState.dir = DragVerticel;
+                self.game.drag.dir = DragVerticel;
             }
         }
-        CGFloat newLeft = [self leftConstraintToParent:self.dragState.tile.view];
-        CGFloat newTop = [self topConstraintToParent:self.dragState.tile.view];
-        if (DragHorizontal == self.dragState.dir) {
-            newLeft = CLIP(newLeft + translation.x, self.dragState.range.minLeft * self.unit, self.dragState.range.maxLeft * self.unit);
+        CGFloat newLeft = [self leftConstraintToParent:self.game.drag.tile.view];
+        CGFloat newTop = [self topConstraintToParent:self.game.drag.tile.view];
+        if (DragHorizontal == self.game.drag.dir) {
+            newLeft = CLIP(newLeft + translation.x, self.game.drag.range.minLeft * self.unit, self.game.drag.range.maxLeft * self.unit);
         } else {
-            newTop = CLIP(newTop + translation.y, self.dragState.range.minTop * self.unit, self.dragState.range.maxTop * self.unit);
+            newTop = CLIP(newTop + translation.y, self.game.drag.range.minTop * self.unit, self.game.drag.range.maxTop * self.unit);
         }
         
-        [self.dragState.tile.view mas_updateConstraints:^(MASConstraintMaker *make) {
+        [self.game.drag.tile.view mas_updateConstraints:^(MASConstraintMaker *make) {
             make.left.equalTo(self.containerView).with.offset(newLeft);
             make.top.equalTo(self.containerView).with.offset(newTop);
         }];
@@ -375,15 +237,6 @@ int moves = 0;
     return 0.0;
 }
 
-- (void)changeConstraintConstant:(UIView*)view andAttr:(NSLayoutAttribute)attr andConstant:(CGFloat)newConstant {
-    NSArray* verticals = [view constraints];
-    for (NSLayoutConstraint* constraint in verticals) {
-        if (attr == constraint.firstAttribute) {
-            constraint.constant = newConstant;
-        }
-    }
-}
-
 - (CGFloat)topConstraintToParent:(UIView*)view {
     NSArray* verticals = [view constraintsAffectingLayoutForAxis:UILayoutConstraintAxisVertical];
     for (NSLayoutConstraint* constraint in verticals) {
@@ -392,6 +245,53 @@ int moves = 0;
         }
     }
     return 0.0;
+}
+
+- (void)addObservers {
+    [self addObserver:self forKeyPath:@"numMoves" options:NSKeyValueObservingOptionNew context:nil];
+    [self addObserver:self forKeyPath:@"numSteps" options:NSKeyValueObservingOptionNew context:nil];
+}
+
+- (void)dealloc {
+    [self removeObserver:self forKeyPath:@"numMoves"];
+    [self removeObserver:self forKeyPath:@"numSteps"];
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
+    if ([keyPath isEqualToString:@"numMoves"]) {
+        self.movesLabel.text = [NSString stringWithFormat:@"移动次数：%d", self.numMoves];
+    } else if ([keyPath isEqualToString:@"numSteps"]) {
+        self.stepsLabel.text = [NSString stringWithFormat:@"移动距离：%d", self.numSteps];
+    }
+}
+
+- (void)gameFinish {
+    NSString* msg = [NSString stringWithFormat:@"曹操成功逃出华容道！\n移动方块次数：%d\n移动方块距离：%d", self.numMoves, self.numSteps];
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"恭喜"
+                                                                             message:msg
+                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"再来一次" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        // 点击确定按钮后的处理逻辑
+        [self reset];
+    }];
+
+    [alertController addAction:okAction];
+    // 在视图控制器中弹出警告框
+    [self presentViewController:alertController animated:YES completion:nil];
+}
+
+- (void)reset {
+    [self.game reset];
+    [UIView animateWithDuration:0.5 animations:^{
+        for (HRDTile* tile in self.game.tiles) {
+            [tile.view mas_updateConstraints:^(MASConstraintMaker *make) {
+                make.left.equalTo(self.containerView).with.offset(tile.leftIndex * self.unit);
+                make.top.equalTo(self.containerView).with.offset(tile.topIndex * self.unit);
+            }];
+        }
+        [self.containerView layoutIfNeeded];
+    }];
+    self.numSteps = self.numMoves = 0;
 }
 
 @end
